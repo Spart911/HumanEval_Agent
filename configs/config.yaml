@@ -1,0 +1,27 @@
+# Model configuration
+model:
+  model_path: "/home/nyuroprint/Jupyter/pdg_trained_github"
+  base_model_path: "/home/nyuroprint/Jupyter/Qwen2.5-Coder-3B"
+  use_lora: true
+  device: "cuda"
+  torch_dtype: "float16"
+  quantization:
+    weights: "int8"
+
+# Generation configuration
+generation:
+  max_new_tokens: 400
+  temperature: 0.6
+  top_k: 40
+  top_p: 0.95
+  do_sample: true
+  num_beams: 1
+  num_return_sequences: 1
+
+# Benchmark configuration
+benchmark:
+  dataset: "humaneval"
+  limit: null
+  iterations: 3
+  output_file: null
+  verbose: true ]
