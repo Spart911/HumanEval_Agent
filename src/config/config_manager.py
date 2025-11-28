@@ -44,6 +44,7 @@ class BenchmarkConfig:
     save_detailed: bool = False
     verbose: bool = True
     use_agent_chain: bool = True
+    use_base_model_only: bool = False
 
 
 @dataclass
@@ -165,6 +166,8 @@ def load_config(config_path: Optional[str] = None, cli_args: Optional[argparse.N
             config.benchmark.verbose = cli_args.verbose
         if hasattr(cli_args, 'no_use_agent_chain') and cli_args.no_use_agent_chain:
             config.benchmark.use_agent_chain = False
+        if hasattr(cli_args, 'use_base_model_only') and cli_args.use_base_model_only:
+            config.benchmark.use_base_model_only = True
 
     return config
 
@@ -195,6 +198,7 @@ def parse_cli_args() -> argparse.Namespace:
     bench_group.add_argument('--config', type=str, help='Configuration file path')
     bench_group.add_argument('--verbose', action='store_true', default=True, help='Verbose output')
     bench_group.add_argument('--no-use-agent-chain', action='store_true', help='Disable agent chain for iterative code correction')
+    bench_group.add_argument('--use-base-model-only', action='store_true', help='Use only base model without any fine-tuned adapters')
 
     # Load arguments CLI arguments
     args = parser.parse_args()

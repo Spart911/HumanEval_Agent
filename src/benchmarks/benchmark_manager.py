@@ -5,7 +5,7 @@ from typing import Dict, Any, Optional
 from datetime import datetime
 
 from .humaneval_benchmark import run_full_humaneval_benchmark
-from src.models import load_model, load_model_with_lora
+from src.models import load_model, load_model_with_lora, load_base_model_only
 
 logger = logging.getLogger(__name__)
 
@@ -17,11 +17,13 @@ class BenchmarkManager:
         base_model_path: Optional[str] = None,
         use_lora: bool = False,
         device: str = "auto",
+        use_base_model_only: bool = False,
     ):
         self.model_path = model_path
         self.base_model_path = base_model_path
         self.use_lora = use_lora
         self.device_name = device
+        self.use_base_model_only = use_base_model_only
         self.model = None
         self.tokenizer = None
         self.device = None
@@ -29,16 +31,25 @@ class BenchmarkManager:
         self.benchmark_results: Dict[str, Any] = {}
 
     def load_model(self) -> bool:
-        """Load model (optionally with LoRA)."""
+        """Load model (optionally with LoRA or base model only)."""
         try:
             logger.info("Loading model...")
 
-
-            self.tokenizer, self.model, self.device = load_model_with_lora(
-                self.model_path,
-                self.base_model_path,
-                device=self.device_name,
-            )
+            if self.use_base_model_only:
+                if not self.base_model_path:
+                    logger.error("Base model path is required when using --use-base-model-only")
+                    return False
+                logger.info("Loading base model only (without fine-tuned adapters)...")
+                self.tokenizer, self.model, self.device = load_base_model_only(
+                    self.base_model_path,
+                    device=self.device_name,
+                )
+            else:
+                self.tokenizer, self.model, self.device = load_model_with_lora(
+                    self.model_path,
+                    self.base_model_path,
+                    device=self.device_name,
+                )
 
             logger.info("Model loaded successfully.")
             self.metadata["model_loaded"] = True

@@ -45,6 +45,9 @@ python main.py --model-path путь/к/модели --limit 10 --temperature 0.
 # Запуск без AgentChain (один проход генерации)
 python main.py --model-path путь/к/модели --no-use-agent-chain
 
+# Использовать только базовую модель без дообученных адаптеров
+python main.py --base-model-path путь/к/базовой/модели --use-base-model-only
+
 # Использование файла конфигурации
 python main.py --config configs/example_config.yaml
 ```
@@ -124,6 +127,7 @@ benchmark:
   --config FILE          Путь к файлу конфигурации
   --verbose              Подробный вывод
   --no-use-agent-chain   Отключить AgentChain для итеративного исправления кода
+  --use-base-model-only  Использовать только базовую модель без дообученных адаптеров
 ```
 
 ## Требования

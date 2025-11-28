@@ -129,6 +129,80 @@ def load_model_with_lora(
     )
 
 
+def load_base_model_only(
+    base_model_path: str,
+    device: Union[str, torch.device] = "auto",
+    torch_dtype: torch.dtype = torch.float16,
+    trust_remote_code: bool = True
+) -> tuple:
+    """
+    Загрузка только базовой модели без каких-либо адаптеров или дообученных версий.
+
+    Args:
+        base_model_path: Путь к базовой модели
+        device: Устройство для загрузки модели
+        torch_dtype: Тип данных для модели
+        trust_remote_code: Доверять удаленному коду
+
+    Returns:
+        Кортеж (tokenizer, model, device)
+    """
+    os.environ.setdefault("HF_HUB_OFFLINE", "1")
+    os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
+
+    login_to_huggingface()
+
+    base_model_path = _expand_local_path(base_model_path)
+
+    if device == "auto":
+        device = get_device()
+    elif isinstance(device, str):
+        device = torch.device(device)
+
+    if not os.path.exists(base_model_path) and "/" not in base_model_path:
+        logger.error(f"Базовая модель {base_model_path} не найдена локально и не указано имя репозитория.")
+        raise ValueError(f"Base model path {base_model_path} does not exist")
+
+    try:
+        # ---------------------- Загружаем токенизатор ----------------------
+        logger.info(f"Загружаем токенизатор из {base_model_path}")
+        tokenizer = AutoTokenizer.from_pretrained(
+            base_model_path,
+            trust_remote_code=trust_remote_code,
+            local_files_only=True
+        )
+
+        if tokenizer.pad_token_id is None:
+            tokenizer.pad_token_id = tokenizer.eos_token_id
+            logger.info("Установлен pad_token_id равным eos_token_id")
+
+        # ---------------------- Аргументы загрузки модели ----------------------
+        load_kwargs = {
+            "trust_remote_code": trust_remote_code,
+            "torch_dtype": torch_dtype,
+            "local_files_only": True,
+        }
+
+        if device.type == "cuda":
+            load_kwargs["device_map"] = "cuda"
+        else:
+            load_kwargs["device_map"] = None
+
+        # ---------------------- Загрузка базовой модели ----------------------
+        logger.info(f"Загружаем базовую модель из {base_model_path}")
+        model = AutoModelForCausalLM.from_pretrained(base_model_path, **load_kwargs)
+
+        model = model.to(device)
+        model.eval()
+        logger.info(f"✅ Базовая модель успешно загружена на устройство {device}")
+
+        return tokenizer, model, device
+
+    except Exception as e:
+        logger.error(f"❌ Не удалось загрузить базовую модель: {e}")
+        raise
+
+
 def load_merged_model(
     lora_path: str,
     base_model_path: str,

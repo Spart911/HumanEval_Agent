@@ -50,7 +50,8 @@ def main():
         model_path=config.model.model_path,
         base_model_path=config.model.base_model_path,
         use_lora=config.model.use_lora,
-        device=config.model.device
+        device=config.model.device,
+        use_base_model_only=config.benchmark.use_base_model_only
     )
 
     # Загрузка модели
