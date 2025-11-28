@@ -65,7 +65,8 @@ def main():
                 limit=config.benchmark.limit,
                 iterations=config.benchmark.iterations,
                 generation_config=config.generation.__dict__,
-                verbose=config.benchmark.verbose
+                verbose=config.benchmark.verbose,
+                use_agent_chain=config.benchmark.use_agent_chain
             )
 
             if result:

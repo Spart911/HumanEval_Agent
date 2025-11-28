@@ -43,6 +43,7 @@ class BenchmarkConfig:
     output_file: Optional[str] = None
     save_detailed: bool = False
     verbose: bool = True
+    use_agent_chain: bool = True
 
 
 @dataclass
@@ -162,6 +163,8 @@ def load_config(config_path: Optional[str] = None, cli_args: Optional[argparse.N
             config.benchmark.output_file = cli_args.output_file
         if hasattr(cli_args, 'verbose'):
             config.benchmark.verbose = cli_args.verbose
+        if hasattr(cli_args, 'no_use_agent_chain') and cli_args.no_use_agent_chain:
+            config.benchmark.use_agent_chain = False
 
     return config
 
@@ -191,6 +194,7 @@ def parse_cli_args() -> argparse.Namespace:
     bench_group.add_argument('--output-file', type=str, help='Output file for results')
     bench_group.add_argument('--config', type=str, help='Configuration file path')
     bench_group.add_argument('--verbose', action='store_true', default=True, help='Verbose output')
+    bench_group.add_argument('--no-use-agent-chain', action='store_true', help='Disable agent chain for iterative code correction')
 
     # Load arguments CLI arguments
     args = parser.parse_args()

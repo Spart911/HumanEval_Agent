@@ -6,7 +6,7 @@ from typing import Dict, Any, Optional, List
 from datasets import Dataset
 
 from src.data import load_humaneval_dataset, prepare_humaneval_examples
-from src.models import generate_code_with_model
+from src.models import generate_code_with_model, generate_single_turn_code
 from src.evalution import evaluate_on_dataset, EvaluationResult
 from src.utils import extract_functions_only
 
@@ -20,7 +20,8 @@ def run_humaneval_example(
         model,
         device: torch.device,
         generation_config: Optional[Dict[str, Any]] = None,
-        iterations: int = 3
+        iterations: int = 3,
+        use_agent_chain: bool = True
 ) -> Dict[str, Any]:
     """
     Run benchmark on a single HumanEval example.
@@ -54,48 +55,57 @@ def run_humaneval_example(
     print(f"Function: {example['entry_point']}")
 
     try:
-        start_time = time.time()
+            start_time = time.time()
 
-        # Generate code
-        generated_code_part = generate_code_with_model(
-            prompt="<prompt>" + example["prompt"] + "<prompt><setting>code generation without docstring</setting>",
-            tokenizer=tokenizer,
-            model=model,
-            device=device,
-            generation_config=generation_config,
-            iterations=iterations
-        )
+            # Generate code
+            if use_agent_chain:
+                generated_code_part = generate_code_with_model(
+                    prompt="<prompt>" + example["prompt"] + "<prompt><setting>code generation without docstring</setting>",
+                    tokenizer=tokenizer,
+                    model=model,
+                    device=device,
+                    generation_config=generation_config,
+                    iterations=iterations
+                )
+            else:
+                generated_code_part = generate_single_turn_code(
+                    prompt="<prompt>" + example["prompt"] + "<prompt><setting>code generation without docstring</setting>",
+                    tokenizer=tokenizer,
+                    model=model,
+                    device=device,
+                    generation_config=generation_config
+                )
 
-        # Combine with prompt
-        full_generated_text = example["prompt"] + generated_code_part
-        generated_function = extract_functions_only(full_generated_text)
+            # Combine with prompt
+            full_generated_text = example["prompt"] + generated_code_part
+            generated_function = extract_functions_only(full_generated_text)
 
-        if not generated_function.strip():
-            logger.error("❌ Failed to extract executable code from model response")
+            if not generated_function.strip():
+                logger.error("❌ Failed to extract executable code from model response")
+                return {
+                    "task_id": task_id,
+                    "entry_point": example["entry_point"],
+                    "error": "Could not extract executable code",
+                    "passed": False
+                }
+
+            full_code_to_test = generated_function
+
+            # Evaluate the code
+            result = evaluate_on_dataset([full_code_to_test],
+                                         [{"test_code": example["test_code"],
+                                           "entry_point": example["entry_point"],
+                                           "task_id": task_id}])
+
+            gen_time = time.time() - start_time
+
+            print(f"Generated code for {example['entry_point']}:")
+            preview = generated_code_part
+            print(preview)
+            print(f"Result: {'PASS' if result.pass_rate > 0 else 'FAIL'}")
+            print("-" * 50)
+
             return {
-                "task_id": task_id,
-                "entry_point": example["entry_point"],
-                "error": "Could not extract executable code",
-                "passed": False
-            }
-
-        full_code_to_test = generated_function
-
-        # Evaluate the code
-        result = evaluate_on_dataset([full_code_to_test],
-                                     [{"test_code": example["test_code"],
-                                       "entry_point": example["entry_point"],
-                                       "task_id": task_id}])
-
-        gen_time = time.time() - start_time
-
-        print(f"Generated code for {example['entry_point']}:")
-        preview = generated_code_part
-        print(preview)
-        print(f"Result: {'PASS' if result.pass_rate > 0 else 'FAIL'}")
-        print("-" * 50)
-
-        return {
             "task_id": task_id,
             "entry_point": example["entry_point"],
             "generated_code": generated_code_part,
@@ -122,7 +132,8 @@ def run_full_humaneval_benchmark(
         iterations: int = 3,
         limit: Optional[int] = None,
         output_file: Optional[str] = None,
-        verbose: bool = True
+        verbose: bool = True,
+        use_agent_chain: bool = True
 ) -> EvaluationResult:
     """
     Run full HumanEval benchmark on provided model.
@@ -176,14 +187,23 @@ def run_full_humaneval_benchmark(
 
         try:
             # Generate code
-            generated_code_part = generate_code_with_model(
-                prompt="<setting>code generation without docstring</setting><setting>don't use List, use list</setting><prompt>" + prompt_for_model + "<prompt>",
-                tokenizer=tokenizer,
-                model=model,
-                device=device,
-                generation_config=generation_config,
-                iterations=iterations
-            )
+            if use_agent_chain:
+                generated_code_part = generate_code_with_model(
+                    prompt="<setting>code generation without docstring</setting><setting>don't use List, use list</setting><prompt>" + prompt_for_model + "<prompt>",
+                    tokenizer=tokenizer,
+                    model=model,
+                    device=device,
+                    generation_config=generation_config,
+                    iterations=iterations
+                )
+            else:
+                generated_code_part = generate_single_turn_code(
+                    prompt="<setting>code generation without docstring</setting><setting>don't use List, use list</setting><prompt>" + prompt_for_model + "<prompt>",
+                    tokenizer=tokenizer,
+                    model=model,
+                    device=device,
+                    generation_config=generation_config
+                )
 
             # Combine with prompt
             full_generated_text = prompt_for_model + generated_code_part

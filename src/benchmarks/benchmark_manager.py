@@ -55,6 +55,7 @@ class BenchmarkManager:
         iterations: int = 3,
         generation_config: Optional[Dict[str, Any]] = None,
         verbose: bool = True,
+        use_agent_chain: bool = True,
     ) -> Optional[Dict[str, Any]]:
         """
         Run HumanEval benchmark.
@@ -81,6 +82,7 @@ class BenchmarkManager:
                 iterations=iterations,
                 limit=limit,
                 verbose=verbose,
+                use_agent_chain=use_agent_chain,
             )
 
             self.benchmark_results["humaneval"] = {
