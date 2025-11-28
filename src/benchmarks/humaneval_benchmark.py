@@ -58,7 +58,7 @@ def run_humaneval_example(
 
         # Generate code
         generated_code_part = generate_code_with_model(
-            prompt=example["prompt"],
+            prompt="<prompt>" + example["prompt"] + "<prompt><setting>code generation without docstring</setting>",
             tokenizer=tokenizer,
             model=model,
             device=device,
@@ -89,8 +89,8 @@ def run_humaneval_example(
 
         gen_time = time.time() - start_time
 
-        print(f"Generated code for {example['entry_point']} (first 200 chars):")
-        preview = generated_code_part[:200] + "..." if len(generated_code_part) > 200 else generated_code_part
+        print(f"Generated code for {example['entry_point']}:")
+        preview = generated_code_part
         print(preview)
         print(f"Result: {'PASS' if result.pass_rate > 0 else 'FAIL'}")
         print("-" * 50)
@@ -177,7 +177,7 @@ def run_full_humaneval_benchmark(
         try:
             # Generate code
             generated_code_part = generate_code_with_model(
-                prompt=prompt_for_model,
+                prompt="<setting>code generation without docstring</setting><setting>don't use List, use list</setting><prompt>" + prompt_for_model + "<prompt>",
                 tokenizer=tokenizer,
                 model=model,
                 device=device,
@@ -207,8 +207,8 @@ def run_full_humaneval_benchmark(
             test_cases.append(example)
 
             if verbose:
-                print(f"Generated code for {entry_point} (first 200 chars):")
-                preview = generated_code_part[:200] + "..." if len(generated_code_part) > 200 else generated_code_part
+                print(f"Generated code for {example['entry_point']}:")
+                preview = generated_code_part
                 print(preview)
                 print("-" * 50)
 
