@@ -45,6 +45,8 @@ class BenchmarkConfig:
     verbose: bool = True
     use_agent_chain: bool = True
     use_base_model_only: bool = False
+    seed: Optional[int] = None
+    deterministic_generation: bool = False
 
 
 @dataclass
@@ -88,6 +90,8 @@ class Config:
             for key, value in config_dict['benchmark'].items():
                 if hasattr(config.benchmark, key):
                     setattr(config.benchmark, key, value)
+                elif key == 'seed':
+                    config.benchmark.seed = value
 
         return config
 
@@ -168,6 +172,10 @@ def load_config(config_path: Optional[str] = None, cli_args: Optional[argparse.N
             config.benchmark.use_agent_chain = False
         if hasattr(cli_args, 'use_base_model_only') and cli_args.use_base_model_only:
             config.benchmark.use_base_model_only = True
+        if hasattr(cli_args, 'seed') and cli_args.seed is not None:
+            config.benchmark.seed = cli_args.seed
+        if hasattr(cli_args, 'deterministic_generation') and cli_args.deterministic_generation:
+            config.benchmark.deterministic_generation = True
 
     return config
 
@@ -199,6 +207,8 @@ def parse_cli_args() -> argparse.Namespace:
     bench_group.add_argument('--verbose', action='store_true', default=True, help='Verbose output')
     bench_group.add_argument('--no-use-agent-chain', action='store_true', help='Disable agent chain for iterative code correction')
     bench_group.add_argument('--use-base-model-only', action='store_true', help='Use only base model without any fine-tuned adapters')
+    bench_group.add_argument('--seed', type=int, help='Random seed for reproducible results')
+    bench_group.add_argument('--deterministic-generation', action='store_true', help='Use deterministic generation (temperature=0.0, do_sample=False)')
 
     # Load arguments CLI arguments
     args = parser.parse_args()

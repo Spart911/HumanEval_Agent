@@ -24,4 +24,6 @@ benchmark:
   limit: null
   iterations: 3
   output_file: null
-  verbose: true ]
+  verbose: true
+  seed: null
+  deterministic_generation: false ]

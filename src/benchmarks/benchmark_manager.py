@@ -6,6 +6,7 @@ from datetime import datetime
 
 from .humaneval_benchmark import run_full_humaneval_benchmark
 from src.models import load_model, load_model_with_lora, load_base_model_only
+from src.utils.seed_utils import set_random_seed, make_generation_deterministic
 
 logger = logging.getLogger(__name__)
 
@@ -18,12 +19,16 @@ class BenchmarkManager:
         use_lora: bool = False,
         device: str = "auto",
         use_base_model_only: bool = False,
+        seed: Optional[int] = None,
+        deterministic_generation: bool = False,
     ):
         self.model_path = model_path
         self.base_model_path = base_model_path
         self.use_lora = use_lora
         self.device_name = device
         self.use_base_model_only = use_base_model_only
+        self.seed = seed
+        self.deterministic_generation = deterministic_generation
         self.model = None
         self.tokenizer = None
         self.device = None
@@ -83,6 +88,16 @@ class BenchmarkManager:
         if self.model is None:
             logger.error("Model not loaded. Call load_model() first.")
             return None
+
+        # Установка seed для повторяемости результатов
+        if self.seed is not None:
+            set_random_seed(self.seed)
+            logger.info(f"Установлен seed {self.seed} для повторяемости результатов")
+
+        # Применение детерминированной генерации если требуется
+        if self.deterministic_generation:
+            generation_config = make_generation_deterministic(generation_config or {})
+            logger.info("Используется детерминированная генерация")
 
         try:
             result = run_full_humaneval_benchmark(

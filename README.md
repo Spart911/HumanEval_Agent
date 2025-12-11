@@ -117,6 +117,49 @@ python main.py --base-model-path путь/к/базовой/модели --use-b
 
 # Использование файла конфигурации
 python main.py --config configs/example_config.yaml
+
+# Повторяемые прогоны с фиксированным seed
+python main.py --seed 42 --limit 10
+
+# Детерминированная генерация (без температуры и случайности)
+python main.py --seed 42 --deterministic-generation --limit 10
+```
+
+## Повторяемые прогоны бенчмарков
+
+Для обеспечения воспроизводимости результатов бенчмарков проект поддерживает два основных механизма:
+
+### 1. Фиксированный случайный seed
+
+```bash
+# Запуск с фиксированным seed для полного воспроизведения результатов
+python main.py --seed 42 --limit 10
+
+# Результат будет идентичным при повторных запусках с тем же seed
+python main.py --seed 42 --limit 10
+```
+
+### 2. Детерминированная генерация
+
+```bash
+# Детерминированная генерация без случайности (greedy decoding)
+python main.py --seed 42 --deterministic-generation --limit 10
+```
+
+### Особенности повторяемых прогонов
+
+- **Фиксированный порядок примеров**: Примеры из датасета всегда обрабатываются в отсортированном порядке по task_id
+- **Глобальный seed**: Устанавливается для Python random, NumPy, PyTorch и Transformers
+- **Детерминированная генерация**: Полностью исключает случайность (temperature=0.0, do_sample=False)
+
+### Примеры конфигурации в YAML
+
+```yaml
+benchmark:
+  seed: 42
+  deterministic_generation: true
+  limit: 10
+  verbose: true
 ```
 
 ## Конфигурация
@@ -144,6 +187,8 @@ BASE_MODEL_PATH=Qwen/Qwen2.5-Coder-3B
   --verbose              Подробный вывод
   --no-use-agent-chain   Отключить AgentChain для итеративного исправления кода
   --use-base-model-only  Использовать только базовую модель без дообученных адаптеров
+  --seed INT             Фиксированный seed для повторяемых результатов
+  --deterministic-generation Детерминированная генерация (temperature=0.0, do_sample=False)
 ```
 
 ## Требования

@@ -40,6 +40,9 @@ def run_humaneval_example(
     dataset = load_humaneval_dataset()
     examples = prepare_humaneval_examples(dataset)
 
+    # Sort examples by task_id for deterministic ordering
+    examples = sorted(examples, key=lambda x: x["task_id"])
+
     # Find the requested example
     example = None
     for ex in examples:
@@ -154,6 +157,9 @@ def run_full_humaneval_benchmark(
     # Load dataset
     human_eval = load_humaneval_dataset()
     examples = prepare_humaneval_examples(human_eval)
+
+    # Sort examples by task_id for deterministic ordering
+    examples = sorted(examples, key=lambda x: x["task_id"])
 
     # Apply limit if specified
     if limit:
