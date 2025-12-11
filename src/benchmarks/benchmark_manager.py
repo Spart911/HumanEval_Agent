@@ -89,11 +89,6 @@ class BenchmarkManager:
             logger.error("Model not loaded. Call load_model() first.")
             return None
 
-        # Установка seed для повторяемости результатов
-        if self.seed is not None:
-            set_random_seed(self.seed)
-            logger.info(f"Установлен seed {self.seed} для повторяемости результатов")
-
         # Применение детерминированной генерации если требуется
         if self.deterministic_generation:
             generation_config = make_generation_deterministic(generation_config or {})

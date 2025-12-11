@@ -14,7 +14,7 @@ sys.path.insert(0, str(src_path))
 
 from src.config import parse_cli_args, load_config
 from src.benchmarks import BenchmarkManager
-from src.utils import login_to_huggingface
+from src.utils import login_to_huggingface, set_random_seed
 
 # Настройка логирования
 logging.basicConfig(
@@ -35,6 +35,12 @@ def main():
     # Загрузка конфигурации
     config = load_config(cli_args.config, cli_args)
 
+    # Установка seed для повторяемости результатов (если указан)
+    if config.benchmark.seed is not None:
+        set_random_seed(config.benchmark.seed)
+        logger.info(f"Установлен глобальный seed {config.benchmark.seed} для повторяемости")
+        logger.info(f"Конфигурация: seed={config.benchmark.seed}, deterministic={config.benchmark.deterministic_generation}")
+
     # Проверка конфигурации
     if not config.model.model_path:
         logger.error("Путь к модели не указан. Используйте --model-path или установите MAIN_MODEL_PATH в .env")
@@ -46,6 +52,7 @@ def main():
 
 
     # Создание менеджера бенчмарка
+    logger.info(f"Создание BenchmarkManager с seed={config.benchmark.seed}")
     benchmark_manager = BenchmarkManager(
         model_path=config.model.model_path,
         base_model_path=config.model.base_model_path,

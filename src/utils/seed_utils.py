@@ -35,6 +35,9 @@ def set_random_seed(seed: int) -> None:
         if torch.cuda.is_available():
             torch.cuda.manual_seed(seed)
             torch.cuda.manual_seed_all(seed)
+            # Дополнительная фиксация для генераторов CUDA
+            torch.backends.cudnn.deterministic = True
+            torch.backends.cudnn.benchmark = False
         logger.info(f"Установлен PyTorch random seed: {seed}")
     except ImportError:
         logger.warning("PyTorch не установлен, пропускаю установку PyTorch seed")
@@ -43,11 +46,18 @@ def set_random_seed(seed: int) -> None:
         # Установка seed'а для Transformers
         import transformers
         transformers.set_seed(seed)
+        # Дополнительная фиксация для генерации
+        if hasattr(transformers, 'torch'):
+            transformers.torch.manual_seed(seed)
         logger.info(f"Установлен Transformers seed: {seed}")
     except ImportError:
         logger.warning("Transformers не установлен, пропускаю установку Transformers seed")
+    except Exception as e:
+        logger.warning(f"Ошибка при установке Transformers seed: {e}")
 
-    logger.info(f"Установлен глобальный random seed: {seed}")
+    # Проверка установки seed
+    test_random = random.randint(0, 1000)
+    logger.info(f"Установлен глобальный random seed: {seed} (test: {test_random})")
 
 
 def make_generation_deterministic(generation_config: dict) -> dict:
