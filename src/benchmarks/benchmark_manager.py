@@ -93,6 +93,10 @@ class BenchmarkManager:
         if self.deterministic_generation:
             generation_config = make_generation_deterministic(generation_config or {})
             logger.info("Используется детерминированная генерация")
+        else:
+            logger.info("Используется стохастическая генерация")
+
+        logger.info(f"Параметры генерации: {generation_config}")
 
         try:
             result = run_full_humaneval_benchmark(

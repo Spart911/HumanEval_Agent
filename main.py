@@ -12,6 +12,9 @@ project_root = Path(__file__).parent
 src_path = project_root / "src"
 sys.path.insert(0, str(src_path))
 
+# РАННЯЯ установка детерминированного режима (ДО импортов PyTorch)
+from src.utils.seed_utils import set_deterministic_mode
+
 from src.config import parse_cli_args, load_config
 from src.benchmarks import BenchmarkManager
 from src.utils import login_to_huggingface, set_random_seed
@@ -26,6 +29,9 @@ logger = logging.getLogger(__name__)
 
 def main():
     """Основная функция для запуска бенчмарка."""
+    # РАННЯЯ установка детерминированного режима
+    set_deterministic_mode()
+
     # Вход в HuggingFace
     login_to_huggingface()
 

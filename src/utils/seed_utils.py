@@ -20,6 +20,10 @@ def set_random_seed(seed: int) -> None:
     # Установка seed'а для Python hash randomization
     os.environ['PYTHONHASHSEED'] = str(seed)
 
+    # Отключаем многопоточность для детерминированности
+    os.environ['OMP_NUM_THREADS'] = '1'
+    os.environ['MKL_NUM_THREADS'] = '1'
+
     try:
         # Установка seed'а для NumPy
         import numpy as np
@@ -32,12 +36,17 @@ def set_random_seed(seed: int) -> None:
         # Установка seed'а для PyTorch
         import torch
         torch.manual_seed(seed)
+        torch.use_deterministic_algorithms(True)
+
         if torch.cuda.is_available():
             torch.cuda.manual_seed(seed)
             torch.cuda.manual_seed_all(seed)
             # Дополнительная фиксация для генераторов CUDA
             torch.backends.cudnn.deterministic = True
             torch.backends.cudnn.benchmark = False
+            torch.backends.cuda.matmul.allow_tf32 = False
+            torch.backends.cudnn.allow_tf32 = False
+            logger.info("CUDA детерминированные алгоритмы включены")
         logger.info(f"Установлен PyTorch random seed: {seed}")
     except ImportError:
         logger.warning("PyTorch не установлен, пропускаю установку PyTorch seed")
@@ -58,6 +67,26 @@ def set_random_seed(seed: int) -> None:
     # Проверка установки seed
     test_random = random.randint(0, 1000)
     logger.info(f"Установлен глобальный random seed: {seed} (test: {test_random})")
+
+
+def set_deterministic_mode() -> None:
+    """
+    Включает максимально детерминированный режим для всех библиотек.
+    Вызывается ДО импорта PyTorch и других библиотек.
+    """
+    # Отключаем многопоточность
+    os.environ['OMP_NUM_THREADS'] = '1'
+    os.environ['MKL_NUM_THREADS'] = '1'
+    os.environ['NUMEXPR_NUM_THREADS'] = '1'
+    os.environ['OPENBLAS_NUM_THREADS'] = '1'
+
+    # Отключаем TF32 для точности
+    os.environ['NVIDIA_TF32_OVERRIDE'] = '0'
+
+    # Python hash randomization
+    os.environ['PYTHONHASHSEED'] = '0'
+
+    logger.info("Включен максимально детерминированный режим")
 
 
 def make_generation_deterministic(generation_config: dict) -> dict:
