@@ -13,7 +13,8 @@ src_path = project_root / "src"
 sys.path.insert(0, str(src_path))
 
 from src.config import parse_cli_args, load_config
-from src.utils.seed_utils import configure_determinism_env
+from src.benchmarks import BenchmarkManager
+from src.utils import login_to_huggingface
 
 # Настройка логирования
 logging.basicConfig(
@@ -25,35 +26,14 @@ logger = logging.getLogger(__name__)
 
 def main():
     """Основная функция для запуска бенчмарка."""
+    # Вход в HuggingFace
+    login_to_huggingface()
+
     # Парсинг аргументов командной строки
     cli_args = parse_cli_args()
 
     # Загрузка конфигурации
     config = load_config(cli_args.config, cli_args)
-
-    # ВАЖНО: если включаем детерминированную генерацию на CUDA,
-    # нужно настроить env ДО первого импорта torch/CUDA.
-    if config.benchmark.deterministic_generation:
-        configure_determinism_env()
-
-    # Импорты, которые могут подтянуть torch/CUDA (делаем ПОСЛЕ configure_determinism_env)
-    from src.utils import login_to_huggingface, set_random_seed
-    from src.utils.seed_utils import enable_torch_determinism
-    from src.benchmarks.benchmark_manager import BenchmarkManager
-
-    # Вход в HuggingFace
-    login_to_huggingface()
-
-    # Установка seed для повторяемости результатов (если указан)
-    if config.benchmark.seed is not None:
-        set_random_seed(config.benchmark.seed)
-        logger.info(f"Установлен глобальный seed {config.benchmark.seed} для повторяемости")
-        logger.info(f"Конфигурация: seed={config.benchmark.seed}, deterministic={config.benchmark.deterministic_generation}")
-
-    # Включаем строгий детерминированный режим PyTorch только в режиме deterministic_generation
-    # (иначе будет либо падать, либо не гарантировать воспроизводимость при sampling).
-    if config.benchmark.deterministic_generation:
-        enable_torch_determinism(strict=True)
 
     # Проверка конфигурации
     if not config.model.model_path:
@@ -66,15 +46,12 @@ def main():
 
 
     # Создание менеджера бенчмарка
-    logger.info(f"Создание BenchmarkManager с seed={config.benchmark.seed}")
     benchmark_manager = BenchmarkManager(
         model_path=config.model.model_path,
         base_model_path=config.model.base_model_path,
         use_lora=config.model.use_lora,
         device=config.model.device,
-        use_base_model_only=config.benchmark.use_base_model_only,
-        seed=config.benchmark.seed,
-        deterministic_generation=config.benchmark.deterministic_generation
+        use_base_model_only=config.benchmark.use_base_model_only
     )
 
     # Загрузка модели

@@ -117,61 +117,7 @@ python main.py --base-model-path путь/к/базовой/модели --use-b
 
 # Использование файла конфигурации
 python main.py --config configs/example_config.yaml
-
-# Повторяемые прогоны с фиксированным seed
-python main.py --seed 42 --limit 10
-
-# Детерминированная генерация (без температуры и случайности)
-python main.py --seed 42 --deterministic-generation --limit 10
 ```
-
-## Повторяемые прогоны бенчмарков
-
-Для обеспечения **полной воспроизводимости** результатов бенчмарков проект использует комплексный подход к детерминированности:
-
-### 1. Глобальная детерминированность
-
-```bash
-# Полная детерминированная генерация (рекомендуется для воспроизводимости)
-python main.py --seed 42 --deterministic-generation --limit 10
-
-# Повторный запуск даст ИДЕНТИЧНЫЕ результаты
-python main.py --seed 42 --deterministic-generation --limit 10
-```
-
-### 2. Тестирование повторяемости
-
-```bash
-# Запуск специального теста повторяемости
-python test_reproducibility.py
-```
-
-### Особенности полной детерминированности
-
-- **Раннее включение детерминированного режима**: Отключает многопоточность и TF32 оптимизации
-- **Фиксированный порядок примеров**: Сортировка датасета по task_id
-- **Детерминированные алгоритмы PyTorch**: `torch.use_deterministic_algorithms(True)`
-- **Отключение CUDA оптимизаций**: `torch.backends.cudnn.deterministic = True`
-- **Фиксированные параметры генерации**: `temperature=0.0, do_sample=False, top_k=1, top_p=1.0`
-
-### Примеры конфигурации в YAML
-
-```yaml
-benchmark:
-  seed: 42
-  deterministic_generation: true  # Обязательно для повторяемости
-  limit: 10
-  iterations: 1  # Одна итерация для детерминированности
-  use_agent_chain: false  # Отключаем итеративное исправление
-  verbose: true
-```
-
-### Важные замечания
-
-- **Всегда используйте `--deterministic-generation`** для полной повторяемости
-- **Устанавливайте `iterations: 1`** и `use_agent_chain: false` для детерминированности
-- **Seed должен быть одинаковым** для сравнения результатов
-- **Тестируйте повторяемость** с помощью `test_reproducibility.py`
 
 ## Конфигурация
 
@@ -198,8 +144,6 @@ BASE_MODEL_PATH=Qwen/Qwen2.5-Coder-3B
   --verbose              Подробный вывод
   --no-use-agent-chain   Отключить AgentChain для итеративного исправления кода
   --use-base-model-only  Использовать только базовую модель без дообученных адаптеров
-  --seed INT             Фиксированный seed для повторяемых результатов
-  --deterministic-generation Детерминированная генерация (temperature=0.0, do_sample=False) [ОБЯЗАТЕЛЬНО для полной повторяемости]
 ```
 
 ## Требования
