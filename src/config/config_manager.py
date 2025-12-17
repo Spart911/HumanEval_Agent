@@ -32,6 +32,7 @@ class GenerationConfig:
     num_return_sequences: int = 1
     pad_token_id: Optional[int] = None
     eos_token_id: Optional[int] = None
+    seed: Optional[int] = None
 
 
 @dataclass
@@ -152,6 +153,10 @@ def load_config(config_path: Optional[str] = None, cli_args: Optional[argparse.N
             config.generation.max_new_tokens = cli_args.max_new_tokens
         if hasattr(cli_args, 'temperature'):
             config.generation.temperature = cli_args.temperature
+        if hasattr(cli_args, 'do_sample'):
+            config.generation.do_sample = cli_args.do_sample
+        if hasattr(cli_args, 'seed') and cli_args.seed is not None:
+            config.generation.seed = cli_args.seed
 
         # Benchmark configuration
         if hasattr(cli_args, 'dataset') and cli_args.dataset:
@@ -187,6 +192,9 @@ def parse_cli_args() -> argparse.Namespace:
     gen_group = parser.add_argument_group('Generation Configuration')
     gen_group.add_argument('--max-new-tokens', type=int, help='Maximum new tokens to generate')
     gen_group.add_argument('--temperature', type=float, help='Generation temperature')
+    gen_group.add_argument('--do-sample', action='store_true', default=None, help='Enable sampling (default: True)')
+    gen_group.add_argument('--no-do-sample', dest='do_sample', action='store_false', help='Disable sampling (greedy decoding for deterministic results)')
+    gen_group.add_argument('--seed', type=int, default=None, help='Random seed for deterministic generation')
 
     # Benchmark configuration
     bench_group = parser.add_argument_group('Benchmark Configuration')

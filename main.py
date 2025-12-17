@@ -5,6 +5,8 @@
 import sys
 import os
 import logging
+import random
+import numpy as np
 from pathlib import Path
 
 # Добавляем директорию src в Python путь для импорта модулей
@@ -24,6 +26,19 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+def set_seed(seed: int):
+    """Установка seed для воспроизводимости результатов."""
+    random.seed(seed)
+    np.random.seed(seed)
+    import torch
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    # Для полной детерминированности (может замедлить выполнение)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    logger.info(f"Установлен seed: {seed} для детерминированной генерации")
+
+
 def main():
     """Основная функция для запуска бенчмарка."""
     # Вход в HuggingFace
@@ -34,6 +49,10 @@ def main():
 
     # Загрузка конфигурации
     config = load_config(cli_args.config, cli_args)
+    
+    # Установка seed для детерминированности (если указан)
+    if config.generation.seed is not None:
+        set_seed(config.generation.seed)
 
     # Проверка конфигурации
     if not config.model.model_path:

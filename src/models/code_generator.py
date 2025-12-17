@@ -18,6 +18,7 @@ def _clean_and_prepare_gen_kwargs(tokenizer: AutoTokenizer, user_cfg: Optional[D
     - На некоторых версиях transformers игнорируется max_new_tokens, если не указан max_length.
       Поэтому выставляем max_length = input_len + max_new_tokens для совместимости.
     - Исключаем значения None, чтобы не затирать корректные pad/eos token id.
+    - Для детерминированной генерации (do_sample=False) удаляем параметры sampling.
     """
     base_cfg: Dict[str, Any] = {
         "max_new_tokens": 400,
@@ -32,6 +33,14 @@ def _clean_and_prepare_gen_kwargs(tokenizer: AutoTokenizer, user_cfg: Optional[D
         # убираем None значения
         cleaned = {k: v for k, v in user_cfg.items() if v is not None}
         base_cfg.update(cleaned)
+
+    # Для детерминированной генерации (greedy decoding) удаляем параметры sampling
+    if base_cfg.get("do_sample") is False:
+        # Удаляем параметры, которые используются только при sampling
+        base_cfg.pop("temperature", None)
+        base_cfg.pop("top_k", None)
+        base_cfg.pop("top_p", None)
+        logger.info("Детерминированный режим: используется greedy decoding (do_sample=False)")
 
     # убедимся, что pad/eos заданы
     if base_cfg.get("pad_token_id") is None:
