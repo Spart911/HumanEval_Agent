@@ -42,6 +42,10 @@ def _clean_and_prepare_gen_kwargs(tokenizer: AutoTokenizer, user_cfg: Optional[D
         base_cfg.pop("top_p", None)
         logger.info("Детерминированный режим: используется greedy decoding (do_sample=False)")
 
+    # Удаляем seed из параметров генерации - он не используется model.generate()
+    # seed устанавливается отдельно через set_seed() перед генерацией
+    base_cfg.pop("seed", None)
+
     # убедимся, что pad/eos заданы
     if base_cfg.get("pad_token_id") is None:
         base_cfg["pad_token_id"] = tokenizer.eos_token_id
