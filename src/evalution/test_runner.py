@@ -27,7 +27,22 @@ def run_humaneval_test(generated_code: str, test_code: str, entry_point: str) ->
     module = types.ModuleType("generated_module")
     try:
         exec(generated_code, module.__dict__)
+        if entry_point not in module.__dict__:
+            logger.error(f"❌ ENTRY POINT NOT FOUND: функция {entry_point} не определена в сгенерированном коде")
+            return False
+
         exec(test_code, module.__dict__)
+
+        # ВАЖНО: в разных вариантах датасета test_code может НЕ вызывать check(candidate) автоматически.
+        # Чтобы избежать ложноположительных PASS, если в тестах есть функция check — вызываем её явно.
+        check_fn = module.__dict__.get("check")
+        if callable(check_fn):
+            try:
+                check_fn(module.__dict__[entry_point])
+            except Exception as e:
+                logger.error(f"❌ CHECK FAILED for {entry_point}: {type(e).__name__}: {e}")
+                return False
+
         logger.info(f"✅ HumanEval tests for {entry_point} passed successfully.")
         return True
     except Exception as e:

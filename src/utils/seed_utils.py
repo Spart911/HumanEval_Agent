@@ -2,6 +2,7 @@
 import os
 import random
 import logging
+import sys
 from typing import Optional
 
 logger = logging.getLogger(__name__)
@@ -9,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 def set_random_seed(seed: int) -> None:
     """
-    Установка глобального случайного seed'а для Python, NumPy и PyTorch.
+    Установка seed'ов для Python/NumPy (и PyTorch, если он уже импортирован).
 
     Args:
         seed: Значение seed'а для установки.
@@ -17,12 +18,8 @@ def set_random_seed(seed: int) -> None:
     # Установка seed'а для Python random
     random.seed(seed)
 
-    # Установка seed'а для Python hash randomization
+    # Установка seed'а для Python hash randomization (важно: для полного эффекта лучше задавать как env ДО старта процесса)
     os.environ['PYTHONHASHSEED'] = str(seed)
-
-    # Отключаем многопоточность для детерминированности
-    os.environ['OMP_NUM_THREADS'] = '1'
-    os.environ['MKL_NUM_THREADS'] = '1'
 
     try:
         # Установка seed'а для NumPy
@@ -32,61 +29,88 @@ def set_random_seed(seed: int) -> None:
     except ImportError:
         logger.warning("NumPy не установлен, пропускаю установку NumPy seed")
 
-    try:
-        # Установка seed'а для PyTorch
-        import torch
-        torch.manual_seed(seed)
-        torch.use_deterministic_algorithms(True)
-
-        if torch.cuda.is_available():
-            torch.cuda.manual_seed(seed)
-            torch.cuda.manual_seed_all(seed)
-            # Дополнительная фиксация для генераторов CUDA
-            torch.backends.cudnn.deterministic = True
-            torch.backends.cudnn.benchmark = False
-            torch.backends.cuda.matmul.allow_tf32 = False
-            torch.backends.cudnn.allow_tf32 = False
-            logger.info("CUDA детерминированные алгоритмы включены")
-        logger.info(f"Установлен PyTorch random seed: {seed}")
-    except ImportError:
-        logger.warning("PyTorch не установлен, пропускаю установку PyTorch seed")
+    # ВАЖНО: не импортируем torch принудительно (чтобы не нарушать раннюю настройку env для детерминированности).
+    # Если torch уже импортирован где-то выше по стеку, можем дополнительно засеять его генераторы.
+    if "torch" in sys.modules:
+        try:
+            import torch  # noqa: F401
+            torch.manual_seed(seed)
+            if torch.cuda.is_available():
+                torch.cuda.manual_seed(seed)
+                torch.cuda.manual_seed_all(seed)
+            logger.info(f"Установлен PyTorch random seed: {seed}")
+        except Exception as e:
+            logger.warning(f"Не удалось установить PyTorch seed (torch уже импортирован): {e}")
 
     try:
         # Установка seed'а для Transformers
         import transformers
         transformers.set_seed(seed)
-        # Дополнительная фиксация для генерации
-        if hasattr(transformers, 'torch'):
-            transformers.torch.manual_seed(seed)
         logger.info(f"Установлен Transformers seed: {seed}")
     except ImportError:
         logger.warning("Transformers не установлен, пропускаю установку Transformers seed")
     except Exception as e:
         logger.warning(f"Ошибка при установке Transformers seed: {e}")
 
-    # Проверка установки seed
-    test_random = random.randint(0, 1000)
-    logger.info(f"Установлен глобальный random seed: {seed} (test: {test_random})")
+    logger.info(f"Seed установлен: {seed}")
 
 
-def set_deterministic_mode() -> None:
+def configure_determinism_env() -> None:
     """
-    Включает максимально детерминированный режим для всех библиотек.
-    Вызывается ДО импорта PyTorch и других библиотек.
+    Настраивает переменные окружения для максимальной детерминированности.
+
+    Критично: эту функцию нужно вызывать ДО первого импорта/инициализации torch/CUDA,
+    иначе часть настроек (например, CUBLAS_WORKSPACE_CONFIG) не подействует.
     """
     # Отключаем многопоточность
-    os.environ['OMP_NUM_THREADS'] = '1'
-    os.environ['MKL_NUM_THREADS'] = '1'
-    os.environ['NUMEXPR_NUM_THREADS'] = '1'
-    os.environ['OPENBLAS_NUM_THREADS'] = '1'
+    os.environ.setdefault('OMP_NUM_THREADS', '1')
+    os.environ.setdefault('MKL_NUM_THREADS', '1')
+    os.environ.setdefault('NUMEXPR_NUM_THREADS', '1')
+    os.environ.setdefault('OPENBLAS_NUM_THREADS', '1')
 
     # Отключаем TF32 для точности
-    os.environ['NVIDIA_TF32_OVERRIDE'] = '0'
+    os.environ.setdefault('NVIDIA_TF32_OVERRIDE', '0')
 
-    # Python hash randomization
-    os.environ['PYTHONHASHSEED'] = '0'
+    # Требование PyTorch для детерминированности CuBLAS (CUDA >= 10.2)
+    # См. сообщение: "set CUBLAS_WORKSPACE_CONFIG=:4096:8 or :16:8 before running"
+    os.environ.setdefault('CUBLAS_WORKSPACE_CONFIG', ':4096:8')
 
-    logger.info("Включен максимально детерминированный режим")
+    logger.info("Переменные окружения для детерминированности настроены (CUBLAS_WORKSPACE_CONFIG и т.п.)")
+
+
+def enable_torch_determinism(strict: bool = True) -> None:
+    """
+    Включает детерминированные алгоритмы PyTorch.
+
+    Args:
+        strict: Если True — PyTorch будет падать на недетерминированных операциях.
+                Если False — будет лишь предупреждать (если поддерживается версией).
+    """
+    try:
+        import torch
+    except Exception as e:
+        logger.warning(f"PyTorch недоступен, пропускаю enable_torch_determinism(): {e}")
+        return
+
+    # CUDNN
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+
+    # TF32
+    if hasattr(torch.backends, "cuda") and hasattr(torch.backends.cuda, "matmul"):
+        torch.backends.cuda.matmul.allow_tf32 = False
+    if hasattr(torch.backends, "cudnn"):
+        torch.backends.cudnn.allow_tf32 = False
+
+    # Глобальные детерминированные алгоритмы
+    try:
+        # PyTorch >= 1.8: есть warn_only
+        torch.use_deterministic_algorithms(True, warn_only=not strict)  # type: ignore[arg-type]
+    except TypeError:
+        # Старые версии PyTorch без warn_only
+        torch.use_deterministic_algorithms(True)
+
+    logger.info(f"PyTorch детерминированный режим включен (strict={strict})")
 
 
 def make_generation_deterministic(generation_config: dict) -> dict:
