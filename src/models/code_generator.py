@@ -96,8 +96,15 @@ def generate_code_with_model(
         # Переносим тензоры на устройство
         inputs = {k: v.to(device) for k, v in inputs.items()}
 
+        # Вычисляем реальную длину промпта без padding для детерминированности
+        # Используем attention_mask для определения реальной длины
+        if "attention_mask" in inputs:
+            actual_input_len = inputs["attention_mask"].sum().item()
+        else:
+            actual_input_len = inputs["input_ids"].shape[1]
+
         # Сбор совместимых kwargs для generate
-        gen_kwargs = _clean_and_prepare_gen_kwargs(tokenizer, generation_config, inputs["input_ids"].shape[1])
+        gen_kwargs = _clean_and_prepare_gen_kwargs(tokenizer, generation_config, actual_input_len)
 
         try:
             # Генерация кода
@@ -180,8 +187,15 @@ def generate_single_turn_code(
     inputs = tokenizer(prompt, return_tensors="pt", padding=True, truncation=True)
     inputs = {k: v.to(device) for k, v in inputs.items()}
 
+    # Вычисляем реальную длину промпта без padding для детерминированности
+    # Используем attention_mask для определения реальной длины
+    if "attention_mask" in inputs:
+        actual_input_len = inputs["attention_mask"].sum().item()
+    else:
+        actual_input_len = inputs["input_ids"].shape[1]
+
     # Сбор совместимых kwargs для generate
-    gen_kwargs = _clean_and_prepare_gen_kwargs(tokenizer, generation_config, inputs["input_ids"].shape[1])
+    gen_kwargs = _clean_and_prepare_gen_kwargs(tokenizer, generation_config, actual_input_len)
 
     try:
         # Генерация кода
