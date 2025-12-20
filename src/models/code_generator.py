@@ -59,64 +59,6 @@ def _clean_and_prepare_gen_kwargs(tokenizer: AutoTokenizer, user_cfg: Optional[D
 
     return base_cfg
 
-
-def _generate_single_step(
-    prompt: str,
-    tokenizer: AutoTokenizer,
-    model,
-    device: torch.device,
-    generation_config: Optional[Dict[str, Any]] = None
-) -> str:
-    """
-    Внутренняя функция для генерации кода за один шаг.
-    Используется как в generate_code_with_model, так и в generate_single_turn_code
-    для обеспечения идентичности результатов.
-    
-    Args:
-        prompt: Промпт задачи.
-        tokenizer: Токенизатор для модели.
-        model: Языковая модель.
-        device: Устройство для выполнения генерации.
-        generation_config: Опциональная конфигурация для параметров генерации.
-    
-    Returns:
-        Сгенерированный код после обработки.
-    """
-    # Токенизация промпта
-    inputs = tokenizer(prompt, return_tensors="pt", padding=True, truncation=True)
-    inputs = {k: v.to(device) for k, v in inputs.items()}
-
-    # Вычисляем реальную длину промпта без padding для детерминированности
-    # Используем attention_mask для определения реальной длины
-    if "attention_mask" in inputs:
-        actual_input_len = inputs["attention_mask"].sum().item()
-    else:
-        actual_input_len = inputs["input_ids"].shape[1]
-
-    # Сбор совместимых kwargs для generate
-    gen_kwargs = _clean_and_prepare_gen_kwargs(tokenizer, generation_config, actual_input_len)
-
-    # Генерация кода
-    with torch.no_grad():
-        outputs = model.generate(
-            input_ids=inputs["input_ids"],
-            attention_mask=inputs.get("attention_mask", None),
-            **gen_kwargs
-        )
-
-    # Декодирование сгенерированного текста
-    gen_suffix = tokenizer.decode(outputs[0][actual_input_len:], skip_special_tokens=True).strip()
-
-    # Очищаем ограждения markdown и выравниваем
-    gen_suffix = strip_code_fences(gen_suffix)
-    gen_suffix = textwrap.dedent(gen_suffix).strip()
-
-    # Преобразуем литералы "\n" и "\t" в реальные переносы/табуляции
-    gen_suffix = gen_suffix.replace("\\n", "\n").replace("\\t", "\t")
-
-    return gen_suffix
-
-
 def generate_code_with_model(
         prompt: str,
         tokenizer: AutoTokenizer,
@@ -149,15 +91,32 @@ def generate_code_with_model(
     for step in range(iterations):
         logger.info(f"🧩 Итерация {step + 1}/{iterations}: уточнение кода...")
 
+        # Токенизация промпта
+        inputs = tokenizer(current_prompt, return_tensors="pt", padding=True, truncation=True)
+        # Переносим тензоры на устройство
+        inputs = {k: v.to(device) for k, v in inputs.items()}
+
+        # Сбор совместимых kwargs для generate
+        gen_kwargs = _clean_and_prepare_gen_kwargs(tokenizer, generation_config, inputs["input_ids"].shape[1])
+
         try:
-            # Используем общую функцию генерации для обеспечения идентичности
-            gen_suffix = _generate_single_step(
-                prompt=current_prompt,
-                tokenizer=tokenizer,
-                model=model,
-                device=device,
-                generation_config=generation_config
-            )
+            # Генерация кода
+            with torch.no_grad():
+                outputs = model.generate(
+                    input_ids=inputs["input_ids"],
+                    attention_mask=inputs.get("attention_mask", None),
+                    **gen_kwargs
+                )
+
+            # Декодирование сгенерированного текста
+            gen_suffix = tokenizer.decode(outputs[0][inputs["input_ids"].shape[1]:], skip_special_tokens=True).strip()
+
+            # Очищаем ограждения markdown и выравниваем
+            gen_suffix = strip_code_fences(gen_suffix)
+            gen_suffix = textwrap.dedent(gen_suffix).strip()
+
+            # Преобразуем литералы "\n" и "\t" в реальные переносы/табуляции
+            gen_suffix = gen_suffix.replace("\\n", "\n").replace("\\t", "\t")
             all_steps.append(gen_suffix)
 
             # Валидация сгенерированного кода в subprocess
@@ -205,7 +164,6 @@ def generate_single_turn_code(
 ) -> str:
     """
     Генерация кода за один проход без валидации.
-    Использует ту же логику, что и первая итерация generate_code_with_model.
 
     Args:
         prompt: Промпт задачи.
@@ -217,16 +175,30 @@ def generate_single_turn_code(
     Returns:
         Сгенерированный код без валидации.
     """
+
+    # Токенизация промпта
+    inputs = tokenizer(prompt, return_tensors="pt", padding=True, truncation=True)
+    inputs = {k: v.to(device) for k, v in inputs.items()}
+
+    # Сбор совместимых kwargs для generate
+    gen_kwargs = _clean_and_prepare_gen_kwargs(tokenizer, generation_config, inputs["input_ids"].shape[1])
+
     try:
-        # Используем общую функцию генерации для обеспечения идентичности с первой итерацией
-        # generate_code_with_model
-        return _generate_single_step(
-            prompt=prompt,
-            tokenizer=tokenizer,
-            model=model,
-            device=device,
-            generation_config=generation_config
-        )
+        # Генерация кода
+        with torch.no_grad():
+            outputs = model.generate(
+                input_ids=inputs["input_ids"],
+                attention_mask=inputs.get("attention_mask", None),
+                **gen_kwargs
+            )
+
+        # Декодирование и очистка
+        gen_text = tokenizer.decode(outputs[0][inputs["input_ids"].shape[1]:], skip_special_tokens=True).strip()
+        gen_text = strip_code_fences(gen_text)
+        gen_text = textwrap.dedent(gen_text).strip()
+        gen_text = gen_text.replace("\\n", "\n").replace("\\t", "\t")
+
+        return gen_text
     except Exception as e:
         logger.error(f"Ошибка во время генерации кода: {e}")
         return ""
